@@ -1,10 +1,16 @@
-# Team11: Multi-Agent Paired Orchestration System
+# Team11: Orchestrator
+
+[Engines of Creation](https://github.com/eoc-gengine) · Studio tooling
+
+[Overview](#overview) · [Status](#status) · [Getting started](#getting-started) · [Development](#development) · [Documentation](#documentation)
+
+## Overview
 
 A global Claude Code plugin that turns a single Claude session into a coordinated team of 11 AI agents working in background pairs with human oversight. Works on any project, any terminal, instantly.
 
 ---
 
-## The Big Picture
+### The Big Picture
 
 ```
 You (human)
@@ -32,7 +38,11 @@ All run in background. You keep working. They surface findings to you.
 
 ```
 
-## What's New — 2026-08-24/25 Communication Rewire (P0–P2)
+## Status
+
+Historical source import from [MetaGates/team11-orchestrator](https://github.com/MetaGates/team11-orchestrator). Original commit dates and authorship are preserved. The source issue and pull-request history remains upstream.
+
+### What's New — 2026-08-24/25 Communication Rewire (P0–P2)
 
 Team11 was re-verified against Claude Code 2.1.241 and rebuilt on the runtime's proven messaging model (plan: `.team11/findings/team11-audit-and-modernization-plan-2026-08-23.md` §C/§H/§I; every mechanism below live-probed 2026-08-24/25):
 
@@ -44,7 +54,7 @@ Team11 was re-verified against Claude Code 2.1.241 and rebuilt on the runtime's 
 - **Checkpoints slimmed** to `{pair, phase, commit_sha, next_action}` — cross-session crash recovery only; in-session resume is the transcript.
 - **Communication is three layers:** messages = the ALARM, logs = the RECORD, memory (DB + per-agent MEMORY.md) = the KNOWLEDGE. A message is never the record.
 
-## Previous — 2026-04-22 Modernization
+### Previous — 2026-04-22 Modernization
 
 Team11 was substantively upgraded on 2026-04-22 (kept as history; superseded where the 2026-08-24/25 rewire says otherwise). Key additions:
 
@@ -61,13 +71,96 @@ Team11 was substantively upgraded on 2026-04-22 (kept as history; superseded whe
 
 Full session log: the project that runs this modernization writes it to `docs/logs/YYYY-MM-DD-session-CEO-HHMMSS.md`. Supersession memory: `feedback_team11_modernized_2026-04-22.md`.
 
-## How It Works (Step by Step)
+## Getting started
 
-### 1. You Give a Task
+### Activation
+
+**Team11 is inert until you invoke it.** No auto-triggers, no background daemons, no token consumption. The one installed hook — a `SubagentStop` hook in the project's `.claude/settings.local.json`, no matcher — runs the Secretary carrier script (`process-pair-log.js`, ~1s, no LLM) after every subagent stop in that project; it is a no-op when no `.team11/logs/*.md` carries new markers and never fires in a project that has not installed it. (verified 2026-08-24, CC 2.1.241)
+
+To turn it off mid-task: `/team11 stop`
+
+---
+
+### Using Team11
+
+#### Starting a Task
+
+```bash
+# In any Claude Code terminal:
+/team11 add a REST endpoint for venue signals with full test coverage
+
+/team11 refactor the scoring engine to use configurable weights
+
+/team11 investigate why the venue detail page crashes on Google image URLs and fix it
+
+/team11 research best practices for OpenAI batch API integration and write an ADR
+```
+
+#### Monitoring While Agents Work
+
+```bash
+/team11 status          # what's everyone doing?
+/team11 hive            # who's editing what file?
+/team11 log 1           # what has pair 1 been up to?
+```
+
+#### Responding to Human Gates
+
+When a pair finishes an audit cycle, you'll see a summary in your session:
+```
+PAIR 1 AUDIT COMPLETE — 2 findings (1 minor fixed, 1 major needs review)
+File: .team11/findings/pair-1-round-1.md
+Action needed: Approve / Reject / Modify
+```
+
+Read the findings, then respond naturally: "approve", "reject, the query needs to use a CTE instead", etc.
+
+#### Persistent Session
+
+```bash
+/team11 fix the login bug       # CEO activates, stays online
+now refactor the auth module    # no /team11 prefix needed
+status                          # shows hive + pair status
+/team11 standdown               # compiles session log, CEO goes dormant
+```
+
+After the first `/team11 <task>`, the CEO stays active. You send tasks directly — no prefix needed. The CEO compiles the session log when you run standdown.
+
+#### Connected Mode (Working with Coworkers)
+
+```bash
+/team11 connect                 # create team11-coord branch, register as operator
+# coworker runs:
+/team11 connect join            # joins your coordination branch
+
+# both dispatch tasks — shared hive prevents file collisions
+/team11 operators               # see who's connected and what they're working on
+/team11 disconnect              # back to solo mode instantly
+```
+
+Connected mode shares the hive mind via a `team11-coord` orphan branch on GitHub. No source code on the branch — just coordination state. Your coworker's agents see your file claims, and vice versa.
+
+#### Multi-Terminal Usage
+
+Open two terminals, two different projects:
+```
+Terminal 1 (food-aggro):  /team11 add venue signals endpoint
+Terminal 2 (other-project): /team11 fix authentication bug
+```
+
+Each gets its own `.team11/` directory. Completely isolated. No interference.
+
+---
+
+## Development
+
+### How It Works (Step by Step)
+
+#### 1. You Give a Task
 
 Type `/team11 <your task>` in any Claude Code terminal. The CEO agent activates in your session.
 
-### 2. CEO Assesses and Decomposes
+#### 2. CEO Assesses and Decomposes
 
 The CEO reads your request and decides:
 - **Trivial** (typo, one-liner) → CEO does it directly, no agents needed
@@ -77,11 +170,11 @@ The CEO reads your request and decides:
 
 It breaks the task into atomic subtasks and assigns each to a pair. Independent tasks run in parallel across pairs. Dependent tasks are sequenced.
 
-### 3. CEO Discovers Available Tools
+#### 3. CEO Discovers Available Tools
 
 Before dispatching, the CEO scans your project for MCP servers (Postgres, Redis, GitHub, Playwright, etc.) and tells each agent what tools they have. Different projects have different tools — agents adapt automatically.
 
-### 4. Agents Work in Pairs
+#### 4. Agents Work in Pairs
 
 Each pair gets an isolated git worktree (a full copy of the repo). They can't interfere with each other or your main branch.
 
@@ -122,7 +215,7 @@ Round 2 (if needed):
 
 **The core rule: nobody reviews their own edit.** The enforced split holds it by construction — every edit is the coder's, every review is the auditor's.
 
-### 5. Human Review Gate
+#### 5. Human Review Gate
 
 Every audit cycle ends with findings presented to YOU. This is non-negotiable — agents cannot auto-approve.
 
@@ -137,7 +230,7 @@ You can:
 - **Reject** → pair starts over with your feedback
 - **Modify** → you give specific guidance, pair adjusts
 
-### 6. The Hive Mind
+#### 6. The Hive Mind
 
 When multiple pairs work simultaneously, they need to know what each other is doing. The hive mind (`.team11/hive.md`) is a shared file every agent READS before editing. Pairs never write it directly: they log `[OUTBOX:*]` claims/facts in their own `.team11/logs/pair-N.md`, and the Secretary carrier (`process-pair-log.js`, run by the SubagentStop hook after every subagent completion) re-renders the auto-block between the `CARRIER-AUTO` markers from those markers. The CEO owns the narrative above the markers (per-pair task, owned files, status):
 
@@ -155,7 +248,7 @@ If Pair 2 sees Pair 1 is changing the schema their hook depends on, they coordin
 
 **Isolation:** The hive mind lives in `<project>/.team11/hive.md` — scoped to THIS project. Two terminals working on two different projects have completely separate hive minds. No interference.
 
-### 8. Background Execution
+#### 8. Background Execution
 
 All agents run in background. Your main Claude session stays fully interactive — you can ask questions, edit files, run commands, start a completely different conversation.
 
@@ -172,11 +265,11 @@ You can check on them anytime:
 
 ---
 
-## Knowledge Capture System
+### Knowledge Capture System
 
 Team11 doesn't just write code — it builds institutional knowledge.
 
-### Session Logs (`docs/logs/YYYY-MM-DD-pair-CEO.md`)
+#### Session Logs (`docs/logs/YYYY-MM-DD-pair-CEO.md`)
 
 Written ONCE at `/team11 standdown` — not during active work. The CEO compiles all pair logs into one clean session log.
 
@@ -189,11 +282,11 @@ Written ONCE at `/team11 standdown` — not during active work. The CEO compiles
 
 **Why at standdown, not per-subtask:** Zero token waste during active work. Pair logs already capture everything. One compilation pass with the full picture produces a better-organized document.
 
-### README & Documentation Updates
+#### README & Documentation Updates
 
 After standdown, the CEO checks: did anything change how the project works? If yes, it updates README.md, CLAUDE.md, and relevant docs/ files. Documentation stays current with code.
 
-### Skill & Memory Proposals (Human-Gated)
+#### Skill & Memory Proposals (Human-Gated)
 
 When agents discover something reusable during their work — a pattern, a gotcha, a multi-step workflow — they write a **proposal**, not a permanent skill or memory.
 
@@ -215,7 +308,7 @@ Proposals must be:
 
 ---
 
-## File Layout
+### File Layout
 
 ```
 ~/.claude/                              # GLOBAL (shared across all projects)
@@ -262,7 +355,7 @@ Proposals must be:
 
 ---
 
-## Persistent Memory
+### Persistent Memory
 
 Facts, pheromones, and gotchas discovered during work live in a SQLite database managed by the **team11-memory MCP server** (`.team11/mcp-server/`). After each merge, the CEO writes findings, decisions, pheromone trails, and gotchas directly via MCP tool calls (`store_finding`, `store_decision`, `store_pheromone`, `store_gotcha`). Before dispatching pairs, the CEO calls `recall_context` to retrieve relevant prior knowledge and include it in the dispatch prompt.
 
@@ -274,7 +367,7 @@ In connected mode (with Turso sync enabled), coworkers see new facts within 60 s
 
 ---
 
-## Knowledge Lifecycle
+### Knowledge Lifecycle
 
 Facts in `memory.db` are not permanent by default — they decay to prevent stale knowledge from biasing future work.
 
@@ -289,7 +382,7 @@ This ensures the hive mind reflects what is currently true, not just what was tr
 
 ---
 
-## MCP Servers
+### MCP Servers
 
 Team11 auto-discovers available MCP servers per project. Currently configured:
 
@@ -307,17 +400,9 @@ Agents use MCP tools when they provide richer data than built-in tools. For exam
 
 ---
 
-## Activation
+### Full Command Reference (30 commands)
 
-**Team11 is inert until you invoke it.** No auto-triggers, no background daemons, no token consumption. The one installed hook — a `SubagentStop` hook in the project's `.claude/settings.local.json`, no matcher — runs the Secretary carrier script (`process-pair-log.js`, ~1s, no LLM) after every subagent stop in that project; it is a no-op when no `.team11/logs/*.md` carries new markers and never fires in a project that has not installed it. (verified 2026-08-24, CC 2.1.241)
-
-To turn it off mid-task: `/team11 stop`
-
----
-
-## Full Command Reference (30 commands)
-
-### Setup & Teardown (one-time per project)
+#### Setup & Teardown (one-time per project)
 | Command | What It Does |
 |---------|-------------|
 | `/team11 setup` | Create 5 permanent worktrees + install deps. Auto-prompted on first use. |
@@ -327,7 +412,7 @@ To turn it off mid-task: `/team11 stop`
 > **CRITICAL on Windows:** Never delete worktrees with `rm -rf` or PowerShell `Remove-Item -Recurse`. pnpm creates NTFS junctions in `node_modules` — PowerShell and MSYS bash **follow junctions and delete target directories**, which can permanently destroy `Documents/`, `Downloads/`, etc.
 > **Safe deletion only via:** `git worktree remove <path>` or `cmd.exe /c "rmdir /S /Q <path>"`
 
-### Task Execution
+#### Task Execution
 | Command | What It Does |
 |---------|-------------|
 | `/team11 <task>` | Start a task — CEO decomposes, dispatches pairs, runs full protocol |
@@ -337,12 +422,12 @@ To turn it off mid-task: `/team11 stop`
 | `/team11 stop pair <N>` | Stop only pair N |
 | `/team11 recover` | Detect crashed pairs, assess damage, present recovery options |
 
-### Swarm Modes
+#### Swarm Modes
 | Command | What It Does |
 |---------|-------------|
 | `/team11 swarm-debug <bug>` | All 5 pairs independently investigate a hard bug — converge on root cause, human picks hypothesis to pursue |
 
-### Monitoring & Live View
+#### Monitoring & Live View
 | Command | What It Does |
 |---------|-------------|
 | `/team11 status` | All active pairs, tasks, hive mind state |
@@ -351,7 +436,7 @@ To turn it off mid-task: `/team11 stop`
 | `/team11 watch` | Live view: all pairs — hive + latest log entries |
 | `/team11 watch <N>` | Live view: pair N — log + current git diff in worktree |
 
-### Review & Approval
+#### Review & Approval
 | Command | What It Does |
 |---------|-------------|
 | `/team11 findings` | List pending audit findings awaiting review |
@@ -359,7 +444,7 @@ To turn it off mid-task: `/team11 stop`
 | `/team11 approve <file>` | Approve a proposal → saved to knowledge base |
 | `/team11 reject <file>` | Reject and delete a proposal |
 
-### Knowledge & Documentation
+#### Knowledge & Documentation
 | Command | What It Does |
 |---------|-------------|
 | `/team11 log-today` | Display today's session log |
@@ -367,18 +452,18 @@ To turn it off mid-task: `/team11 stop`
 | `/team11 project-prompt init` | Deep codebase scan → generate initial project knowledge |
 | `/team11 health` | Memory DB health: entry counts by type, confidence distribution, stale entries, open contradictions, sync status, WAL size |
 
-### Session Control
+#### Session Control
 | Command | What It Does |
 |---------|-------------|
 | `/team11 standdown` | End persistent session. Compile session log. Run decay pass. Go dormant. |
 
-### Diagnostics & Costs
+#### Diagnostics & Costs
 | Command | What It Does |
 |---------|-------------|
 | `/team11 costs` | Token cost breakdown per pair, per task, and session totals |
 | `/team11 test-prompt` | Run a small known task to evaluate whether project-prompt.md is effective |
 
-### Connected Mode (Cross-Human)
+#### Connected Mode (Cross-Human)
 | Command | What It Does |
 |---------|-------------|
 | `/team11 connect` | Connect project to shared hive via GitHub `team11-coord` branch |
@@ -387,113 +472,42 @@ To turn it off mid-task: `/team11 stop`
 | `/team11 operators` | List registered operators and their active pairs |
 | `/team11 sync` | Force-refresh hive from GitHub |
 
-### Meta
+#### Meta
 | Command | What It Does |
 |---------|-------------|
 | `/team11 help` | Show this command list |
 
 ---
 
-## Using Team11
+### Design Principles
 
-### Starting a Task
-
-```bash
-# In any Claude Code terminal:
-/team11 add a REST endpoint for venue signals with full test coverage
-
-/team11 refactor the scoring engine to use configurable weights
-
-/team11 investigate why the venue detail page crashes on Google image URLs and fix it
-
-/team11 research best practices for OpenAI batch API integration and write an ADR
-```
-
-### Monitoring While Agents Work
-
-```bash
-/team11 status          # what's everyone doing?
-/team11 hive            # who's editing what file?
-/team11 log 1           # what has pair 1 been up to?
-```
-
-### Responding to Human Gates
-
-When a pair finishes an audit cycle, you'll see a summary in your session:
-```
-PAIR 1 AUDIT COMPLETE — 2 findings (1 minor fixed, 1 major needs review)
-File: .team11/findings/pair-1-round-1.md
-Action needed: Approve / Reject / Modify
-```
-
-Read the findings, then respond naturally: "approve", "reject, the query needs to use a CTE instead", etc.
-
-### Persistent Session
-
-```bash
-/team11 fix the login bug       # CEO activates, stays online
-now refactor the auth module    # no /team11 prefix needed
-status                          # shows hive + pair status
-/team11 standdown               # compiles session log, CEO goes dormant
-```
-
-After the first `/team11 <task>`, the CEO stays active. You send tasks directly — no prefix needed. The CEO compiles the session log when you run standdown.
-
-### Connected Mode (Working with Coworkers)
-
-```bash
-/team11 connect                 # create team11-coord branch, register as operator
-# coworker runs:
-/team11 connect join            # joins your coordination branch
-
-# both dispatch tasks — shared hive prevents file collisions
-/team11 operators               # see who's connected and what they're working on
-/team11 disconnect              # back to solo mode instantly
-```
-
-Connected mode shares the hive mind via a `team11-coord` orphan branch on GitHub. No source code on the branch — just coordination state. Your coworker's agents see your file claims, and vice versa.
-
-### Multi-Terminal Usage
-
-Open two terminals, two different projects:
-```
-Terminal 1 (food-aggro):  /team11 add venue signals endpoint
-Terminal 2 (other-project): /team11 fix authentication bug
-```
-
-Each gets its own `.team11/` directory. Completely isolated. No interference.
-
----
-
-## Design Principles
-
-### Why Generalist Pairs Instead of Specialist Agents?
+#### Why Generalist Pairs Instead of Specialist Agents?
 
 In Team10, specialized agents (Pipeline Agent, Scoring Agent, Frontend Agent) couldn't help each other. If the Pipeline Agent was idle while the Backend Agent was overloaded, the idle agent was wasted.
 
 Team11 agents are generalists on the CODE — any pair can work on any file in any language. Since the P2 rewire (2026-08-25) the pair itself is asymmetric by construction: the coder makes every edit, and the ENFORCED read-only auditor reviews every commit. The pair structure ensures quality (adversarial review) without requiring domain specialization.
 
-### Why Human Gates on Every Audit?
+#### Why Human Gates on Every Audit?
 
 Research shows that separating the coder from the judge is the single most impactful pattern for code quality (confirmed by HubSpot's Sidekick, Anthropic's three-agent harness, and OMC's verifier lane). But even paired agents can converge on a wrong answer.
 
 The human gate catches what both agents missed. It takes 10-30 seconds to review findings and costs nothing. Skipping it risks compounding errors across dependent tasks.
 
-### Why Per-Project Hive Mind?
+#### Why Per-Project Hive Mind?
 
 Global shared state would mean two terminals working on different projects could see each other's edits and create confusion. Per-project isolation (`.team11/` in the project root) guarantees that each project's agents only see relevant context.
 
-### Why Proposals Instead of Direct Skill/Memory Saves?
+#### Why Proposals Instead of Direct Skill/Memory Saves?
 
 A wrong skill gets reused. A wrong memory biases decisions. The proposal gate ensures only verified, correct knowledge becomes permanent. The 10-second human review prevents hours of compounding mistakes.
 
-### Why Background Execution?
+#### Why Background Execution?
 
 Foreground agents block your session — you can't do anything while they work. Background agents let you keep working, asking questions, or even running a separate task. You only get interrupted when your input is actually needed.
 
 ---
 
-## Token Cost Estimates
+### Token Cost Estimates
 
 All agents currently run on Claude Fable 5 — set by `CLAUDE_CODE_SUBAGENT_MODEL=claude-fable-5` on this machine and mirrored in `.team11/config.json → model_routing` (operator directive 2026-08-21). Re-derive the hourly figures below when the model changes.
 
@@ -511,7 +525,7 @@ All agents currently run on Claude Fable 5 — set by `CLAUDE_CODE_SUBAGENT_MODE
 
 ---
 
-## Communication Architecture
+### Communication Architecture
 
 Three layers (P2 rewire, 2026-08-25): **messages** = the alarm, **logs** = the record, **memory** = the knowledge.
 
@@ -540,7 +554,7 @@ No shared-write files between pairs. Zero concurrency issues. A message is never
 
 ---
 
-## Error Handling & Recovery
+### Error Handling & Recovery
 
 | Situation | What Happens |
 |-----------|-------------|
@@ -553,7 +567,7 @@ No shared-write files between pairs. Zero concurrency issues. A message is never
 | Agent stuck 3+ attempts | Switches to competing-hypothesis debugging |
 | Graceful stop | Agents commit WIP, write partial findings, then halt |
 
-### Checkpoint System
+#### Checkpoint System
 
 Each pair writes a checkpoint file at key phases: `<project>/.team11/checkpoints/pair-N-checkpoint.json`.
 
@@ -561,7 +575,7 @@ The checkpoint contains four fields — `{pair, phase, commit_sha, next_action}`
 
 ---
 
-## Project Knowledge System
+### Project Knowledge System
 
 ```
 .team11/project-prompt.md        ← Index (200 lines max, always loaded)
@@ -580,7 +594,7 @@ Index is always in every dispatch. Topic files loaded by CEO only when relevant 
 
 ---
 
-## Key Quality Features
+### Key Quality Features
 
 - **Anti-rationalization auditing** — auditors have explicit rules against rationalizing problems away, must show evidence for every check
 - **"Never delegate understanding"** — CEO must synthesize research into specific specs before dispatching, vague delegation forbidden
@@ -590,7 +604,7 @@ Index is always in every dispatch. Topic files loaded by CEO only when relevant 
 
 ---
 
-## Backup & Portability
+### Backup & Portability
 
 Team11 lives at `~/.claude/skills/team11/` — **not inside any git repo by default.** To protect against data loss:
 
@@ -602,7 +616,9 @@ This also enables version history for the prompts themselves — you can see how
 
 ---
 
-## Quick Reference
+## Documentation
+
+### Quick Reference
 
 | Command | What It Does |
 |---------|-------------|
